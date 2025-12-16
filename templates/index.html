@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Диаграмма оценок</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f6fa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    margin: 0;
+}
+
+h1 {
+    color: #2f3640;
+    text-align: center;
+}
+
+form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+input {
+    width: 120px;
+    padding: 8px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #dcdde1;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    background-color: #0097e6;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background-color: #0984e3;
+}
+
+#chart-container {
+    width: 100%;
+    max-width: 500px;
+}
+
+#percents {
+    margin-top: 20px;
+    font-weight: bold;
+    text-align: center;
+}
+
+#saveBtn {
+    margin-top: 15px;
+    padding: 8px 15px;
+    background-color: #44bd32;
+}
+
+#saveBtn:hover {
+    background-color: #4cd137;
+}
+</style>
+</head>
+<body>
+<h1>Диаграмма оценок класса</h1>
+
+<form onsubmit="event.preventDefault(); sendData();">
+    <input id="total" type="number" placeholder="Всего учеников" required>
+    <input id="grade5" type="number" placeholder="Пятёрок" required>
+    <input id="grade4" type="number" placeholder="Четвёрок" required>
+    <input id="grade3" type="number" placeholder="Троек" required>
+    <input id="grade2" type="number" placeholder="Двоек" required>
+    <button type="submit">Построить диаграмму</button>
+</form>
+
+<div id="chart-container">
+    <canvas id="myChart"></canvas>
+</div>
+
+<div id="percents"></div>
+<button id="saveBtn" onclick="saveChart()">Сохранить диаграмму</button>
+
+<script>
+let chart;
+
+async function sendData() {
+    const response = await fetch('/calculate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            total: Number(document.getElementById('total').value),
+            '5': Number(document.getElementById('grade5').value),
+            '4': Number(document.getElementById('grade4').value),
+            '3': Number(document.getElementById('grade3').value),
+            '2': Number(document.getElementById('grade2').value),
+        })
+    });
+    const data = await response.json();
+    const ctx = document.getElementById('myChart').getContext('2d');
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(data.grades),
+            datasets: [{
+                data: Object.values(data.grades),
+                backgroundColor: ['#44bd32', '#0097e6', '#e1b12c', '#e84118', '#7f8fa6'],
+                borderColor: 'white',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { size: 14 } }
+                },
+                tooltip: { callbacks: {
+                    label: function(context) {
+                        let label = context.label || '';
+                        let value = context.parsed || 0;
+                        return `${label}: ${value}`;
+                    }
+                }}
+            }
+        }
+    });
+
+    const percentsDiv = document.getElementById('percents');
+    percentsDiv.innerHTML = '';
+    for (const [k, v] of Object.entries(data.percents)) {
+        percentsDiv.innerHTML += `${k}: ${v}%<br>`;
+    }
+}
+
+function saveChart() {
+    if (!chart) return alert("Сначала постройте диаграмму!");
+    const link = document.createElement('a');
+    link.download = 'diagrama_ocenok.png';
+    link.href = chart.toBase64Image();
+    link.click();
+}
+</script>
+</body>
+</html>
